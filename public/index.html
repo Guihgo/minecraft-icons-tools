@@ -6,11 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minecraft Icons Tool</title>
 
-    <script src="./assets/data.json.js" ></script>
+    <script src="./assets/data.map.js" ></script>
 
     <script>
-        // const DATA = { "potions-28-9-1": { "x": 160, "y": 64 }, "items-28-1-0": { "x": 32, "y": 0 }, "items-28-1-1": { "x": 0, "y": 32 } }
+        // const DATA = { "potions-28-9-1": { "x": 160, "y": 64 }, "items-28-1-0": { "x": 32, "y": 0 }, "items-28-2-1": { "x": 0, "y": 32 } }
+        
+        // const DATA = {  "items-28-2-0": { "x": 32, "y": 0 }, "items-28-3-0": { "x": 32, "y": 0 }, "items-28-1-0": { "x": 0, "y": 32 } }
         // const DATA = { "entities-28-99":{"x":288,"y":32},"potions-28-0-0":{"x":0,"y":0},"potions-28-0-1":{"x":32,"y":0},"potions-28-1-0":{"x":0,"y":32},"potions-28-1-1":{"x":32,"y":32},"potions-28-10-0":{"x":64,"y":0},"potions-28-10-1":{"x":64,"y":32},"potions-28-11-0":{"x":0,"y":64},"potions-28-11-1":{"x":32,"y":64},"potions-28-12-0":{"x":64,"y":64},"potions-28-12-1":{"x":96,"y":0},"potions-28-13-0":{"x":96,"y":32},"potions-28-13-1":{"x":96,"y":64},"potions-28-14-0":{"x":0,"y":96},"potions-28-14-1":{"x":32,"y":96},"potions-28-2-0":{"x":64,"y":96},"potions-28-2-1":{"x":96,"y":96},"potions-28-3-0":{"x":128,"y":0},"potions-28-3-1":{"x":128,"y":32},"potions-28-4-0":{"x":128,"y":64},"potions-28-4-1":{"x":128,"y":96},"potions-28-5-0":{"x":0,"y":128},"potions-28-5-1":{"x":32,"y":128},"potions-28-6-0":{"x":64,"y":128},"potions-28-6-1":{"x":96,"y":128},"potions-28-8-0":{"x":128,"y":128},"potions-28-8-1":{"x":160,"y":0},"potions-28-9-0":{"x":160,"y":32},"potions-28-9-1":{"x":160,"y":64}}
+        // let DATA_LIST = []
+
 
         function init() {
 
@@ -82,24 +86,24 @@
                     /* Filter all of category */
                     classKeyList = Object.values(DATA).filter(data => (data.category === category)).map((data => data.classKey))
                 }
-         
+
                 if (index > classKeyList.length) return callback(classKeyList.length)
 
-        
-                const maxIndex = index + Math.min(maxDownloads, classKeyList.length )
-                
+
+                const maxIndex = index + Math.min(maxDownloads, classKeyList.length)
+
                 for (let i = index; i < maxIndex; i++) {
                     const classKey = classKeyList[index]
                     const data = DATA[classKey]
                     if (!data) throw new Error(`Erro while download classKey ${classKey}`)
-                    
+
                     downloadBlob(data.blob, getFilename(data.category, data.id, data.subId))
                     index++
                 }
                 // classKeyList = classKeyList.splice(maxIndex)
-       
 
-                setTimeout(()=>{
+
+                setTimeout(() => {
                     bulkDownload(category, maxDownloads, callback, classKeyList, index)
                 }, 1000)
             }
@@ -113,7 +117,6 @@
                 console.log("All sprites was loaded!")
 
                 const table = document.getElementById("table_data")
-
 
                 function processSeries(index = 0, callback = () => { }) {
 
@@ -130,52 +133,60 @@
                         throw new Error(`Can not get sprite for ${classKeySplitted[0]} category`)
                     }
 
-                    getBlobFromSprite(sprite, DATA[classKey].x, DATA[classKey].y).then((blob) => {
+                    // getBlobFromSprite(sprite, DATA[classKey].x, DATA[classKey].y).then((blob) => {
+                        
+                        const dataItem = DATA[classKey]
+                        dataItem.classKey = classKey
+                        dataItem.blob = null // blob
 
-                        DATA[classKey].classKey = classKey
-                        DATA[classKey].category = sprite.category
-                        DATA[classKey].blob = blob
+                        if (classKeySplitted.length !== 3) throw new Error(`Erro on split classKey ${classKey}`)
 
-                        if (classKeySplitted.length !== 3 && classKeySplitted.length !== 4) throw new Error(`Erro on split classKey ${classKey}`)
-
-                        const id = classKeySplitted[2]
-                        const subId = classKeySplitted[3] || "0"
-
-                        DATA[classKey].id = id
-                        DATA[classKey].subId = subId
-
-                        const fileName = getFilename(sprite.category, id, subId)
+                        const fileName = getFilename(dataItem.category, dataItem.id, dataItem.subId)
 
                         const tr = document.createElement("tr")
-                        tr.id = id.replace(":", "_")
+                        tr.id = `${classKey}`
 
                         const apiURL = `${location.href}api/${sprite.category}/${fileName}`
 
-                        const reader = new FileReader();
-                        reader.readAsDataURL(blob);
-                        reader.onloadend = function () {
+                        // const reader = new FileReader();
+                        // reader.readAsDataURL(blob);
+                        // reader.onloadend = function () {
 
-                            const base64data = reader.result;
+                            const base64data = "" //reader.result;
 
                             tr.innerHTML = `
-                                <td>${id}:${subId}</td>
+                                <td>${dataItem.category}</td>
+                                <td>${dataItem.id}:${dataItem.subId}</td>
+                                <td>${dataItem.name}</td>
+                                <td>${dataItem.nameId}</td>
+                                <td><div class="icon"></div></td>
                                 <td><code>${fileName}</code></td>
-                                <td><img/></td>
                                 <td><input type="text" value="${base64data}"/></td>
                                 <td><input type="text" value="${apiURL}"/></td>
                                 <td><button>Download</button></td>
                             `
 
-                            table.appendChild(tr)
-                            tr.querySelector("td img").src = base64data
+                            table.insertAdjacentElement('beforeend', tr)
+
+                            const icon = tr.querySelector("td .icon")
+                            // .src = sprite.url
+                            icon.style.backgroundImage = `url("${sprite.url}")`
+                            icon.style.width = "32px"
+                            icon.style.height = "32px"
+                            icon.style.backgroundRepeat = "no-repeat"
+                            icon.style.backgroundPosition = `${dataItem.x}px ${dataItem.y}px`
+                            // tr.querySelector("td img").src = base64data
                             // tr.querySelector("td img").src = URL.createObjectURL(blob)
+
                             tr.querySelector("td button").onclick = () => {
                                 downloadBlob(blob, fileName)
                             }
-                        }
-                        console.log("caregou  ", classKeySplitted)
-                        processSeries(++index, callback)
-                    })
+
+                            console.log("caregou  ", classKeySplitted)
+
+                            processSeries(++index, callback)
+                        // }
+                    // })
 
 
 
@@ -227,9 +238,12 @@
     <br />
     <table>
         <thead>
+            <th>CATEGORY</th>
             <th>ID</th>
-            <th>FILENAME</th>
+            <th>NAME</th>
+            <th>NAME_ID</th>
             <th>ICON</th>
+            <th>FILENAME</th>
             <th>BASE_64</th>
             <th>API</th>
             <th>DOWNLOAD</th>

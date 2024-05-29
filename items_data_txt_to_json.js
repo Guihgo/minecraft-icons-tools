@@ -5,7 +5,7 @@ const { resolve } = require("path")
 // css: https://minecraft-ids.grahamedgecombe.com/stylesheets/bundles/all/1644090399.css
 // <class> <x_offset> <y_offset>
 
-const DATA_TXT = readFileSync(resolve(process.cwd(), "data.txt"), {encoding: "utf-8"}).split("\n")
+const DATA_TXT = readFileSync(resolve(process.cwd(), "assets/data.txt"), {encoding: "utf-8"}).split("\n")
 
 function transform(data) {
     let dataJson = {}
@@ -24,6 +24,14 @@ function transform(data) {
     })
 
     return dataJson
+}
+
+function orderAndCategorize() {
+    const data = transform(DATA_TXT)
+}
+
+function exportImages() {
+
 }
 
 writeFileSync(resolve(process.cwd(), "assets/data.json.js"), Buffer.from("const DATA = " + JSON.stringify(transform(DATA_TXT))) , {encoding:"utf-8"} )
