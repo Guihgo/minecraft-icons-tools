@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Icons Tool</title>
+
+    <script src="./assets/data.json.js" ></script>
+
+    <script>
+        // const DATA = { "potions-28-9-1": { "x": 160, "y": 64 }, "items-28-1-0": { "x": 32, "y": 0 }, "items-28-1-1": { "x": 0, "y": 32 } }
+        // const DATA = { "entities-28-99":{"x":288,"y":32},"potions-28-0-0":{"x":0,"y":0},"potions-28-0-1":{"x":32,"y":0},"potions-28-1-0":{"x":0,"y":32},"potions-28-1-1":{"x":32,"y":32},"potions-28-10-0":{"x":64,"y":0},"potions-28-10-1":{"x":64,"y":32},"potions-28-11-0":{"x":0,"y":64},"potions-28-11-1":{"x":32,"y":64},"potions-28-12-0":{"x":64,"y":64},"potions-28-12-1":{"x":96,"y":0},"potions-28-13-0":{"x":96,"y":32},"potions-28-13-1":{"x":96,"y":64},"potions-28-14-0":{"x":0,"y":96},"potions-28-14-1":{"x":32,"y":96},"potions-28-2-0":{"x":64,"y":96},"potions-28-2-1":{"x":96,"y":96},"potions-28-3-0":{"x":128,"y":0},"potions-28-3-1":{"x":128,"y":32},"potions-28-4-0":{"x":128,"y":64},"potions-28-4-1":{"x":128,"y":96},"potions-28-5-0":{"x":0,"y":128},"potions-28-5-1":{"x":32,"y":128},"potions-28-6-0":{"x":64,"y":128},"potions-28-6-1":{"x":96,"y":128},"potions-28-8-0":{"x":128,"y":128},"potions-28-8-1":{"x":160,"y":0},"potions-28-9-0":{"x":160,"y":32},"potions-28-9-1":{"x":160,"y":64}}
+
+        function init() {
+
+            const sprites = [
+                {
+                    category: "items",
+                    url: "./assets/items-28.png",
+                    image: new Image(),
+                    loaded: false,
+                    width: 32,
+                    height: 32
+                },
+                {
+                    category: "entities",
+                    url: "./assets/entities-28.png",
+                    image: new Image(),
+                    loaded: false,
+                    width: 32,
+                    height: 32
+                },
+                {
+                    category: "potions",
+                    url: "./assets/potions-28.png",
+                    image: new Image(),
+                    loaded: false,
+                    width: 32,
+                    height: 32
+                },
+            ]
+
+            function loadSprite(sprite) {
+                return new Promise((resolve) => {
+                    console.log(`Loading sprite`)
+                    sprite.image.onload = () => {
+                        console.log(`sprite ${sprite.url} loaded!`)
+                        resolve()
+                    }
+                    sprite.image.crossOrigin = "anonymous"
+                    sprite.image.src = sprite.url
+                })
+            }
+
+            function getBlobFromSprite(sprite, xOffset, yOffset) {
+                return new Promise((resolve) => {
+                    const canvas = document.createElement('canvas')
+                    const context = canvas.getContext('2d')
+
+                    canvas.width = sprite.width;
+                    canvas.height = sprite.height;
+
+                    context.drawImage(sprite.image, xOffset, yOffset, sprite.width, sprite.height, 0, 0, sprite.width, sprite.height);
+                    canvas.toBlob((blob) => {
+                        resolve(blob)
+                    });
+                })
+            }
+
+            function downloadBlob(blob, filename) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename; // Nome do arquivo a ser baixado
+                link.click();
+            }
+
+            function bulkDownload(category, maxDownloads = 10, callback = () => { }, classKeyList = null, index = 0) {
+
+                if (classKeyList === null) {
+                    /* Filter all of category */
+                    classKeyList = Object.values(DATA).filter(data => (data.category === category)).map((data => data.classKey))
+                }
+         
+                if (index > classKeyList.length) return callback(classKeyList.length)
+
+        
+                const maxIndex = index + Math.min(maxDownloads, classKeyList.length )
+                
+                for (let i = index; i < maxIndex; i++) {
+                    const classKey = classKeyList[index]
+                    const data = DATA[classKey]
+                    if (!data) throw new Error(`Erro while download classKey ${classKey}`)
+                    
+                    downloadBlob(data.blob, getFilename(data.category, data.id, data.subId))
+                    index++
+                }
+                // classKeyList = classKeyList.splice(maxIndex)
+       
+
+                setTimeout(()=>{
+                    bulkDownload(category, maxDownloads, callback, classKeyList, index)
+                }, 1000)
+            }
+
+            function getFilename(category, id, subId) {
+                return `minecraft_${category}_${id}_${subId}.png`
+            }
+
+            Promise.all(sprites.map(s => (loadSprite(s)))).then(() => {
+
+                console.log("All sprites was loaded!")
+
+                const table = document.getElementById("table_data")
+
+
+                function processSeries(index = 0, callback = () => { }) {
+
+                    const classKey = Object.keys(DATA)[index]
+                    if (!classKey) {
+                        return callback()
+                    }
+
+                    const classKeySplitted = classKey.split("-")
+
+                    const sprite = sprites.find(s => (s.category.toLowerCase() === classKeySplitted[0].toLowerCase()))
+
+                    if (!sprite) {
+                        throw new Error(`Can not get sprite for ${classKeySplitted[0]} category`)
+                    }
+
+                    getBlobFromSprite(sprite, DATA[classKey].x, DATA[classKey].y).then((blob) => {
+
+                        DATA[classKey].classKey = classKey
+                        DATA[classKey].category = sprite.category
+                        DATA[classKey].blob = blob
+
+                        if (classKeySplitted.length !== 3 && classKeySplitted.length !== 4) throw new Error(`Erro on split classKey ${classKey}`)
+
+                        const id = classKeySplitted[2]
+                        const subId = classKeySplitted[3] || "0"
+
+                        DATA[classKey].id = id
+                        DATA[classKey].subId = subId
+
+                        const fileName = getFilename(sprite.category, id, subId)
+
+                        const tr = document.createElement("tr")
+                        tr.id = id.replace(":", "_")
+
+                        const apiURL = `${location.href}api/${sprite.category}/${fileName}`
+
+                        const reader = new FileReader();
+                        reader.readAsDataURL(blob);
+                        reader.onloadend = function () {
+
+                            const base64data = reader.result;
+
+                            tr.innerHTML = `
+                                <td>${id}:${subId}</td>
+                                <td><code>${fileName}</code></td>
+                                <td><img/></td>
+                                <td><input type="text" value="${base64data}"/></td>
+                                <td><input type="text" value="${apiURL}"/></td>
+                                <td><button>Download</button></td>
+                            `
+
+                            table.appendChild(tr)
+                            tr.querySelector("td img").src = base64data
+                            // tr.querySelector("td img").src = URL.createObjectURL(blob)
+                            tr.querySelector("td button").onclick = () => {
+                                downloadBlob(blob, fileName)
+                            }
+                        }
+                        console.log("caregou  ", classKeySplitted)
+                        processSeries(++index, callback)
+                    })
+
+
+
+                }
+                processSeries(0, () => {
+
+                    const bulk_downloads = document.getElementById("bulk_downloads")
+
+                    sprites.forEach(s => {
+
+                        const button = document.createElement("button")
+                        button.innerText = `Download ${s.category}`
+                        button.style.marginRight = "5px"
+
+                        button.onclick = (e) => {
+                            e.preventDefault()
+                            console.log(bulkDownload(s.category, 10))
+                            // Object.values(DATA).forEach((data)=>{
+                            //     if(data.category !== s.category) return
+                            //     downloadBlob(data.blob, getFilename(data.category, data.id, data.subId))
+                            // })
+                        }
+                        bulk_downloads.appendChild(button)
+                    })
+
+                    console.log("Finish!!!")
+                })
+
+            })
+
+        }
+
+        window.onload = () => {
+            console.log("window on load")
+            init()
+        }
+
+    </script>
+</head>
+
+<body>
+    <h2>Minecraft Icons Tool</h2>
+
+    <section id="bulk_downloads">
+
+    </section>
+
+    <br />
+    <br />
+    <table>
+        <thead>
+            <th>ID</th>
+            <th>FILENAME</th>
+            <th>ICON</th>
+            <th>BASE_64</th>
+            <th>API</th>
+            <th>DOWNLOAD</th>
+        </thead>
+        <tbody id="table_data">
+            <!-- <tr>
+                <td>1:2</td>
+                <td><img id="img_temp" src="" /></td>
+                <td><img id="img_temp" src="" /></td>
+                <td><button>Download</button></td>
+            </tr> -->
+        </tbody>
+    </table>
+</body>
+
+</html>
