@@ -1,6 +1,9 @@
-import { readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { ASSETS_DIR } from "./global"
+
+import { Image } from "imagescript"
+
+import { API_DIR, ASSETS_DIR, getFilename } from "./global"
 
 enum Category {
     ITEMS = "items",
@@ -22,9 +25,18 @@ interface DataMap {
     [key: string]: Data
 }
 
+interface Sprite {
+    path: string,
+    category: Category,
+    width: number,
+    height: number,
+    buffer?: Buffer,
+    image?: Image,
+    outDirPath?: string
+}
 class MinecraftIconsTools {
 
-    reloadData(dataRawFilePaths: string[] = []) {
+    reloadData(dataRawFilePaths: string[] = [], sprite: Array<Sprite> = []) {
         return new Promise<void>((resv) => {
 
 
@@ -41,8 +53,11 @@ class MinecraftIconsTools {
 
             writeFileSync(resolve(ASSETS_DIR, "data.map.js"), MinecraftIconsTools.mapToJSFile(mappedData), { encoding: "utf-8" })
 
-            resv()
-        })  
+            MinecraftIconsTools.exportIcons(sortedData, sprite).then(() => {
+                resv()
+            })
+
+        })
     }
 
     static joinRaws(dataRawFilePaths: string[]) {
@@ -60,39 +75,6 @@ class MinecraftIconsTools {
         }
         return allData
     }
-
-    // static parseRaw(dataRaw: Buffer): DataJson {
-    //     const dataSplited = dataRaw.toString("utf-8").split("\n")
-
-    //     let dataJson: DataJson = []
-
-    //     function pxToInt(pxString: string) {
-    //         return Number(pxString.trim().replace("px", "").replace("-", ""))
-    //     }
-
-    //     dataSplited.forEach(line => {
-
-    //         if (line == "") return
-
-    //         const values = line.trim().split(" ")
-    //         if (values.length != 3) throw new Error(`Error on line  ${line}`)
-
-    //         const classKeySplitted = values[0].split("-")
-    //         if (classKeySplitted.length !== 3 && classKeySplitted.length !== 4) throw new Error(`Erro on split classKey ${values[0]}`)
-
-    //         dataJson.push({
-    //             name: "",
-    //             nameId: "",
-    //             category: classKeySplitted[0].toLowerCase() as Category,
-    //             id: Number(classKeySplitted[2]),
-    //             subId: Number(classKeySplitted[3]) || 0,
-    //             x: pxToInt(values[1]),
-    //             y: pxToInt(values[2]),
-    //         })
-    //     })
-
-    //     return dataJson as DataJson
-    // }
 
     static sortedByIdAndSubId(data: DataJson): DataJson {
         return data.sort((itemA, itemB) => {
@@ -115,17 +97,66 @@ class MinecraftIconsTools {
         return `${constant ? "const" : "let"} ${exportVariableName} = ${JSON.stringify(dataMap)};`
     }
 
-    exportIcons() {
+    static async exportIcons(dataJson: DataJson, sprites: Array<Sprite> = []) {
+        return new Promise(async (resv) => {
 
+            for (let sprite of sprites) {
+                sprite.buffer = readFileSync(sprite.path)
+                sprite.image = await Image.decode(sprite.buffer)
+                if (!sprite.outDirPath) {
+                    sprite.outDirPath = resolve(API_DIR, sprite.category)
+                }
+                if (!existsSync(sprite.outDirPath)) mkdirSync(sprite.outDirPath, { recursive: true })
+            }
+
+            dataJson.forEach(async (data) => {
+
+                const sprite = sprites.find((s) => s.category === data.category)
+
+                if (!sprite) return console.error(`Can not get sprite for category ${data.category}`)
+
+                const fileName = getFilename(data.category, data.id, data.subId)
+
+                let icon = sprite.image?.clone()!
+
+                icon = icon.crop(data.x * -1, data.y * -1, sprite.width, sprite.height)
+
+                const bufferIcon = await icon?.encode(1).catch(e => {
+                    console.error(`Can not encode icon ${fileName}`, e)
+                })
+
+                if (!bufferIcon) return console.error(`Can not export icon ${fileName}`)
+
+                writeFileSync(resolve(sprite.outDirPath!, fileName), bufferIcon)
+            })
+
+
+        })
     }
 }
 
 
 if (process.argv[2].indexOf("--reload-data") !== -1) {
     const minecraftIconsTools = new MinecraftIconsTools()
-    minecraftIconsTools.reloadData([
-        resolve(ASSETS_DIR, "data_raw_items.json"),
-        resolve(ASSETS_DIR, "data_raw_entities.json")
-    ])
+    minecraftIconsTools.reloadData(
+        [
+            resolve(ASSETS_DIR, "data_raw_items.json"),
+            resolve(ASSETS_DIR, "data_raw_entities.json"),
+        ],
+        [
+            {
+                category: Category.ITEMS,
+                path: resolve(ASSETS_DIR, "items-28.png"),
+                height: 32,
+                width: 32
+            },
+            {
+                category: Category.ENTITIES,
+                path: resolve(ASSETS_DIR, "entities-28.png"),
+                height: 32,
+                width: 32
+            }
+        ]
+    )
 }
 
